@@ -25,6 +25,7 @@
 </head>
 <body>
   <!-- flutter_bootstrap.js: web/flutter_bootstrap.js template, filled in by the build. -->
+  <script src="update.js"></script>
   <script src="flutter_bootstrap.js" async></script>
   <script>
     // Offline cache; relative to <base href>, so it also works under /novel-viewer-download/.
@@ -48,7 +49,8 @@
       };
       const install = async () => {
         try {
-          const reg = await navigator.serviceWorker.register(new URL('sw.js', document.baseURI));
+          const reg = await navigator.serviceWorker.register(new URL('sw.js', document.baseURI), { updateViaCache: 'none' });
+          if (window.__updateWatch) window.__updateWatch(reg);
           if (!reg.installing && reg.active) window.__offline = 'ready';
           reg.addEventListener('updatefound', () => track(reg));
           track(reg);
