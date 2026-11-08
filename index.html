@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <!-- `flutter build --base-href` replaces this placeholder (GitHub Pages: /novel-viewer-download/). -->
+  <base href="/novel-viewer-download/">
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="description" content="텍스트 소설과 책을 읽는 개인용 뷰어. 책은 이 기기의 브라우저에만 저장됩니다.">
+  <meta name="theme-color" content="#fbfbfb">
+
+  <!-- iOS: home-screen app -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="소설뷰어 테스트">
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
+
+  <link rel="icon" type="image/png" href="favicon.png"/>
+  <title>소설뷰어 테스트</title>
+  <link rel="manifest" href="manifest.json">
+  <style>
+    html, body { margin: 0; height: 100%; background: #fbfbfb; overscroll-behavior: none; }
+  </style>
+</head>
+<body>
+  <!-- flutter_bootstrap.js: web/flutter_bootstrap.js template, filled in by the build. -->
+  <script src="flutter_bootstrap.js" async></script>
+  <script>
+    // Offline cache; relative to <base href>, so it also works under /novel-viewer-download/.
+    // window.__offline (read by the app's 저장 안내 screen): 'unsupported' | 'installing' | 'ready' |
+    // 'failed' (first install failed: not usable offline) | 'update-failed' (the old version still works offline).
+    // window.__offlineRetry() installs again.
+    window.__offline = 'serviceWorker' in navigator ? 'installing' : 'unsupported';
+    (function () {
+      if (!('serviceWorker' in navigator)) return;
+      const seen = new WeakSet();
+      const track = (reg) => {
+        const w = reg.installing;
+        if (!w || seen.has(w)) return;
+        seen.add(w);
+        const hadActive = !!reg.active;
+        if (hadActive) window.__offline = 'ready';
+        w.addEventListener('statechange', () => {
+          if (w.state === 'activated') window.__offline = 'ready';
+          else if (w.state === 'redundant') window.__offline = hadActive ? 'update-failed' : 'failed';
+        });
+      };
+      const install = async () => {
+        try {
+          const reg = await navigator.serviceWorker.register(new URL('sw.js', document.baseURI));
+          if (!reg.installing && reg.active) window.__offline = 'ready';
+          reg.addEventListener('updatefound', () => track(reg));
+          track(reg);
+        } catch (e) {
+          window.__offline = 'failed';
+        }
+      };
+      window.__offlineRetry = () => {
+        if (window.__offline === 'failed') window.__offline = 'installing';
+        return install();
+      };
+      window.addEventListener('load', install);
+    })();
+  </script>
+</body>
+</html>
