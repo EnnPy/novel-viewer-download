@@ -1,8 +1,10 @@
-﻿# 소설뷰어 다운로드
+# 소설뷰어 다운로드
 
 개인용 소설 뷰어 앱의 **테스트 빌드**입니다. 앱에는 책(소설) 파일이 들어 있지 않으며, 본인이 가진 파일을 직접 불러와 사용합니다.
 
 최신 버전: [Releases](https://github.com/EnnPy/novel-viewer-download/releases/latest)
+
+웹에서 바로 쓰기: https://ennpy.github.io/novel-viewer-download/
 
 ## Android
 1. Releases에서 `novel-viewer-android-*.apk`를 내려받습니다.
