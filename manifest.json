@@ -1,6 +1,6 @@
 {
-    "name": "텍스쳐",
-    "short_name": "텍스쳐",
+    "name": "Txture",
+    "short_name": "Txture",
     "description": "텍스트 소설과 책을 읽는 개인용 뷰어. 책은 이 기기의 브라우저에만 저장됩니다.",
     "lang": "ko",
     "start_url": ".",
