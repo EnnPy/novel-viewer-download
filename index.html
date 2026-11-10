@@ -21,9 +21,136 @@
   <link rel="manifest" href="manifest.json">
   <style>
     html, body { margin: 0; height: 100%; background: #fbfbfb; overscroll-behavior: none; }
+    #launch-splash { --launch-bg: #F8EFE4; --launch-line: #3A0C37; --launch-strand: #E7769F; --launch-glow: rgba(231,118,159,.24); position: fixed; inset: 0; z-index: 2147483647; background: var(--launch-bg); -webkit-tap-highlight-color: transparent; }
+    @media (prefers-color-scheme: dark) {
+      #launch-splash { --launch-bg: #2E0A2C; --launch-line: #F8E7CF; --launch-strand: #F28DB2; --launch-glow: rgba(242,141,178,.34); }
+    }
+    #launch-lock { position: absolute; left: 50%; top: 50%; width: 288px; height: 288px; margin: -144px 0 0 -144px; }
+    #launch-lock svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+    #launch-mark { translate: 0 -38.19px; scale: .7; }
+    #launch-glow { position: absolute; left: 50%; top: 50%; width: 310px; height: 360px; margin: -180px 0 0 -155px; border-radius: 50%; background: radial-gradient(closest-side, var(--launch-glow), transparent); opacity: 0; }
+    .launch-strand { stroke: var(--launch-strand); stroke-width: 100; stroke-dasharray: 1 2; }
+    .launch-line { stroke: var(--launch-line); stroke-width: 120; }
+    .launch-cut { transform-box: fill-box; transform-origin: center top; }
+    .launch-word { stroke: var(--launch-line); }
   </style>
 </head>
 <body>
+  <div id="launch-splash" aria-hidden="true">
+    <div id="launch-glow"></div>
+    <div id="launch-lock">
+      <svg id="launch-mark" viewBox="-57 -57 1138 1138">
+        <defs>
+          <mask id="launch-weave" maskUnits="userSpaceOnUse" x="-300" y="-300" width="1624" height="1700">
+            <rect x="-300" y="-300" width="1624" height="1700" fill="#fff"/>
+            <path d="M236 344H788M236 512H788M236 680H468" fill="none" stroke="#000" stroke-width="164" stroke-linecap="round"/>
+            <path d="M536 258h144v172h-144zM344 426h144v172h-144z" fill="#fff"/>
+          </mask>
+          <mask id="launch-gaps" maskUnits="userSpaceOnUse" x="-300" y="-300" width="1624" height="1700">
+            <rect x="-300" y="-300" width="1624" height="1700" fill="#fff"/>
+            <rect id="launch-cut-a" class="launch-cut" x="536" y="282" width="144" height="124" fill="#000"/>
+            <rect id="launch-cut-b" class="launch-cut" x="344" y="450" width="144" height="124" fill="#000"/>
+          </mask>
+        </defs>
+        <g fill="none" stroke-linecap="round">
+          <g mask="url(#launch-weave)">
+            <path id="launch-s1" class="launch-strand" pathLength="1" d="M416 220V804"/>
+            <path id="launch-s2" class="launch-strand" pathLength="1" d="M608 220V804"/>
+          </g>
+          <g mask="url(#launch-gaps)">
+            <path class="launch-line" d="M236 344H788"/>
+            <path class="launch-line" d="M236 512H788"/>
+            <path class="launch-line" d="M236 680H468"/>
+          </g>
+        </g>
+      </svg>
+      <svg viewBox="-57 -57 1138 1138">
+        <defs>
+          <clipPath id="launch-xband"><rect x="90" y="-100" width="120" height="100"/></clipPath>
+          <mask id="launch-xunder" maskUnits="userSpaceOnUse" x="80" y="-120" width="140" height="140">
+            <rect x="80" y="-120" width="140" height="140" fill="#fff"/>
+            <path d="M103.5 -115L194.5 15" stroke="#000" stroke-width="44"/>
+          </mask>
+        </defs>
+        <g class="launch-word" fill="none" stroke-width="22" transform="translate(128.2 901.9) scale(1.328)">
+          <g class="launch-letter"><path d="M0 -129H96M48 -129V0"/></g>
+          <g class="launch-letter"><g transform="translate(8 0)"><g clip-path="url(#launch-xband)"><path d="M194.5 -115L103.5 15" mask="url(#launch-xunder)"/><path d="M103.5 -115L194.5 15"/></g></g></g>
+          <g class="launch-letter"><path transform="translate(8 0)" d="M212 -89H272M234 -128V-36A25 25 0 0 0 259 -11H274"/></g>
+          <g class="launch-letter"><path transform="translate(8 0)" d="M301 -100V-45A34 34 0 0 0 369 -45M369 -100V0"/></g>
+          <g class="launch-letter"><path transform="translate(8 0)" d="M403 -100V0M403 -50Q403 -89 452 -89"/></g>
+          <g class="launch-letter"><path transform="translate(8 0)" d="M481 -50H559A39 39 0 1 0 549.9 -24.9"/></g>
+        </g>
+      </svg>
+    </div>
+  </div>
+  <script>
+    (() => {
+      const splash = document.getElementById('launch-splash');
+      const $ = (s) => splash.querySelector(s);
+      const all = (s) => Array.from(splash.querySelectorAll(s));
+      const started = performance.now();
+      let ready = false, fading = false, tapped = false, fade;
+      const animations = [];
+      const animate = (element, frames, options) => {
+        const animation = element.animate(frames, { fill: 'both', ...options });
+        animations.push(animation);
+      };
+      const remove = () => splash.remove();
+      const deadline = setTimeout(remove, 10000);
+      function maybeFade() {
+        if (!ready || fading || !splash.isConnected) return;
+        fading = true;
+        const delay = tapped || skip ? 0 : Math.max(0, 1320 - (performance.now() - started));
+        fade = splash.animate([{ opacity: 1 }, { opacity: 0 }], { delay, duration: tapped ? 160 : 220, easing: 'ease-out', fill: 'both' });
+        fade.startTime = document.timeline.currentTime;
+        fade.onfinish = () => { clearTimeout(deadline); remove(); };
+      }
+      window.addEventListener('flutter-first-frame', () => { ready = true; maybeFade(); }, { once: true });
+      let seen = false;
+      try {
+        seen = sessionStorage.getItem('txture-web-splash') === '1';
+        sessionStorage.setItem('txture-web-splash', '1');
+      } catch (_) { /* Storage can be unavailable in private browsing. */ }
+      // Future web share targets can open the app with ?launch=... to bypass motion.
+      const skip = seen || new URLSearchParams(location.search).has('launch') || matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (!skip) {
+        const timeAt = (x1, y1, x2, y2, p) => {
+          const f = (t, a, b) => 3*a*t*(1-t)*(1-t) + 3*b*t*t*(1-t) + t*t*t;
+          let lo = 0, hi = 1;
+          for (let i = 0; i < 40; i++) { const m = (lo + hi) / 2; if (f(m, y1, y2) < p) lo = m; else hi = m; }
+          return f((lo + hi) / 2, x1, x2);
+        };
+        all('.launch-line').forEach((line, i) => animate(line, [{ transform: 'translateX(-200px)', opacity: 0 }, { transform: 'none', opacity: 1 }], { delay: i * 40, duration: 320, easing: 'cubic-bezier(.25,.6,.3,1)' }));
+        function thread(strand, delay, cut, top) {
+          animate(strand, [{ strokeDashoffset: 1.1 }, { strokeDashoffset: 0 }], { delay, duration: 420, easing: 'cubic-bezier(.3,.15,.3,1)' });
+          const times = [0, 1, 2, 3, 4].map((k) => delay + 420 * timeAt(.3, .15, .3, 1, (((top + 31*k) - 270) / 584 + .1) / 1.1));
+          animate(cut, times.map((t, k) => ({ offset: (t - times[0]) / (times[4] - times[0]), transform: `scaleY(${k / 4})` })), { delay: times[0], duration: times[4] - times[0], easing: 'linear' });
+        }
+        thread($('#launch-s1'), 60, $('#launch-cut-b'), 450);
+        thread($('#launch-s2'), 110, $('#launch-cut-a'), 282);
+        animate($('#launch-mark'), [{ translate: '0 0' }, { translate: '0 -38.19px' }], { delay: 190, duration: 510, easing: 'cubic-bezier(.2,.25,.25,1)' });
+        animate($('#launch-mark'), [{ scale: '1' }, { scale: '.7' }], { delay: 190, duration: 530, easing: 'cubic-bezier(.2,.7,.3,1)' });
+        all('.launch-letter').forEach((letter, i) => animate(letter, [{ transform: 'translateY(40px)', opacity: 0 }, { transform: 'none', opacity: 1 }], { delay: 350 + 36*i, duration: 200, easing: 'cubic-bezier(.2,.55,.25,1)' }));
+        const beat = { delay: 730, duration: 350, easing: 'cubic-bezier(.4,0,.2,1)' };
+        animate($('#launch-lock'), [{ transform: 'none' }, { transform: 'scale(1.03)', offset: .45 }, { transform: 'none' }], beat);
+        animate($('#launch-glow'), [{ opacity: 0 }, { opacity: 1, offset: .45 }, { opacity: 0 }], beat);
+        all('.launch-cut').forEach((cut) => animate(cut, [{ transform: 'none' }, { transform: 'scaleX(.694)', offset: .45 }, { transform: 'none' }], { ...beat, fill: 'none' }));
+      }
+      splash.addEventListener('click', () => {
+        if (tapped || !splash.isConnected) return;
+        tapped = true;
+        animations.forEach((animation) => animation.finish());
+        if (fading) {
+          const opacity = getComputedStyle(splash).opacity;
+          fade.cancel();
+          fade = splash.animate([{ opacity }, { opacity: 0 }], { duration: 160, easing: 'ease-out', fill: 'forwards' });
+          fade.onfinish = () => { clearTimeout(deadline); remove(); };
+          return;
+        }
+        maybeFade();
+      });
+    })();
+  </script>
   <!-- flutter_bootstrap.js: web/flutter_bootstrap.js template, filled in by the build. -->
   <script src="update.js"></script>
   <script src="flutter_bootstrap.js" async></script>
