@@ -1,7 +1,7 @@
 // "새 버전이 있습니다" plumbing between the service worker registration and the Dart app (lib/web_update/).
 // Loaded by index.html, precached and SHA-256 verified like every other build file.
 // Contract with Dart: window.__update.subscribe(cb) with cb(kind, value):
-//   'waiting' <version>  a fully installed (hash-verified) new worker is waiting; never fired for a failed install
+//   'waiting' <version>  ('<build hash>|<app version>' from a worker that knows it) a fully installed (hash-verified) new worker is waiting; never fired for a failed install
 //   'gone'    ''         that waiting worker was replaced or dropped
 //   'swapped' ''         the new worker took over (this tab asked for it, or another tab did); no reload happens here
 // window.__update.apply() asks the waiting worker to skipWaiting; window.__update.reload() reloads once (loop guard).
@@ -12,9 +12,24 @@
   const CHECK_KEY = 'novel-viewer:update-check';
   const RELOAD_KEY = 'novel-viewer:update-reload';
   const DISMISS_KEY = 'novel-viewer:update-dismissed';
+  const RAN_KEY = 'novel-viewer:ran-version';
+  const FRESH_KEY = 'novel-viewer:fresh-install';
   const RELOAD_GUARD_MS = 20 * 1000;
   // A tab that started without a controller (first visit, hard reload) must not reload on the first claim.
   const hadController = !!sw.controller;
+  // A visit with no sign of an earlier install writes the fresh-install sentinel right now, before registration or
+  // check() write anything, so a first visit cut short before the app stored its version is not taken for an
+  // upgrade by the next load. v0.2.10 users never get the sentinel; their earlier install shows as above.
+  const hadInstall = (() => {
+    try {
+      const fresh = localStorage.getItem(FRESH_KEY) !== null;
+      const earlier = hadController || localStorage.getItem(CHECK_KEY) !== null;
+      if (!earlier && !fresh) localStorage.setItem(FRESH_KEY, '1');
+      return earlier && !fresh;
+    } catch (e) {
+      return hadController;
+    }
+  })();
   let reg = null;
   let listener = null;
   let waiting = null; // the announced worker
@@ -152,6 +167,24 @@
       return true;
     },
     reload,
+    // True when an earlier install (v0.2.10 or older, which stored no version) existed before this page load: a
+    // worker already controlled the page, or v0.2.10's update-check stamp existed, and this was not a fresh visit
+    // (fresh-install sentinel). Captured before registration and before any write of this start.
+    hadInstall: () => hadInstall,
+    // The app version this origin last ran; '' = none stored. localStorage is per origin and per storage container:
+    // tabs of one browser share it, but the iOS Home Screen app has its own, isolated from Safari.
+    lastVersion() {
+      try {
+        return localStorage.getItem(RAN_KEY) || '';
+      } catch (e) {
+        return '';
+      }
+    },
+    setLastVersion(v) {
+      try {
+        localStorage.setItem(RAN_KEY, v);
+      } catch (e) {}
+    },
     // versions whose notice was closed in this tab; sessionStorage survives a refresh but not a new tab/session
     dismissed() {
       try {
