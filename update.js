@@ -36,6 +36,11 @@
   let version = null;
   let swapped = false;
   let lastCheck = 0;
+  // The build this page runs, from the page itself: scripts/build_web.ps1 writes the worker's VERSION into index.html
+  // (window.__build). Not from the registration's workers: one that is installing may be a newer deployment.
+  const pageBuild = typeof window.__build === 'string' && !window.__build.startsWith('__') ? window.__build : 'unknown';
+  const buildOf = (v) => String(v).split('|')[0]; // a worker's answer is '<build>' or '<build>|<app version>'
+  const CHECK_DEADLINE_MS = 30 * 1000; // the manual check (checkNow) gives up after this
 
   const emit = (kind, value) => {
     if (!listener) return;
@@ -45,11 +50,18 @@
   };
 
   // The worker answers with its VERSION; without an answer (an older worker) the script URL stands in.
-  const versionOf = (worker) =>
+  // [own] (the manual check's cleanup registry) makes the query cancellable: cleanup clears the timer and settles it as null.
+  const versionOf = (worker, own) =>
     new Promise((resolve) => {
       const fallback = setTimeout(() => resolve('unknown'), 2000);
+      const ch = new MessageChannel();
+      if (own)
+        own(() => {
+          clearTimeout(fallback);
+          ch.port1.onmessage = null;
+          resolve(null);
+        });
       try {
-        const ch = new MessageChannel();
         ch.port1.onmessage = (e) => {
           clearTimeout(fallback);
           resolve(String(e.data));
@@ -61,12 +73,12 @@
       }
     });
 
-  const announce = async () => {
+  const announce = async (own) => {
     const w = reg && reg.waiting;
     // No controller = first install: nothing to replace, so nothing to announce.
     if (!w || !sw.controller || w === waiting) return;
-    const v = await versionOf(w);
-    if (reg.waiting !== w) return;
+    const v = await versionOf(w, own);
+    if (v === null || reg.waiting !== w) return; // cancelled, or the worker moved on
     waiting = w;
     version = v;
     w.addEventListener('statechange', () => {
@@ -167,6 +179,53 @@
       return true;
     },
     reload,
+    // 업데이트 확인 button: asks for a new deployment now (no throttle) and waits for its install, whose files are
+    // hash-verified. Resolves 'new' (a worker is waiting, announced to subscribe), 'none' or 'error'.
+    // Also 'reload' when the newest worker is another build than the one this page runs (pageBuild), e.g. a first-visit
+    // page no worker controls, where the new worker is not announced; after a reload it is, as 'waiting'. One deadline
+    // covers update(), the install and the announcement; when it passes the answer is 'error' and every listener and timer is gone.
+    async checkNow() {
+      if (!reg) return 'error';
+      let over = false;
+      const undo = [];
+      const own = (fn) => (over ? fn() : undo.push(fn));
+      const deadline = new Promise((resolve) => {
+        const t = setTimeout(() => resolve('error'), CHECK_DEADLINE_MS);
+        own(() => clearTimeout(t));
+      });
+      const run = async () => {
+        writeStamp(Date.now());
+        await reg.update();
+        const w = reg.installing;
+        if (over) return 'error';
+        if (w && w.state !== 'installed' && w.state !== 'redundant') {
+          await new Promise((resolve) => {
+            const on = () => {
+              if (w.state === 'installed' || w.state === 'redundant') resolve();
+            };
+            w.addEventListener('statechange', on);
+            own(() => w.removeEventListener('statechange', on));
+          });
+        }
+        if (over) return 'error';
+        if (w && w.state === 'redundant') return 'error'; // the install failed: no answer
+        await announce(own);
+        if (over) return 'error';
+        if (reg.waiting && sw.controller) return 'new';
+        // No controller on this page, so announce() stayed silent: a waiting worker counts like an active one
+        const a = reg.waiting || reg.active;
+        if (!a || pageBuild === 'unknown') return 'none';
+        const now = await versionOf(a, own);
+        if (over || now === null) return 'error';
+        return now !== 'unknown' && buildOf(now) !== pageBuild ? 'reload' : 'none';
+      };
+      try {
+        return await Promise.race([run().catch(() => 'error'), deadline]);
+      } finally {
+        over = true;
+        undo.splice(0).forEach((fn) => fn());
+      }
+    },
     // True when an earlier install (v0.2.10 or older, which stored no version) existed before this page load: a
     // worker already controlled the page, or v0.2.10's update-check stamp existed, and this was not a fresh visit
     // (fresh-install sentinel). Captured before registration and before any write of this start.
