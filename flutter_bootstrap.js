@@ -45,6 +45,9 @@ _flutter.buildConfig = {"engineRevision":"89c39edfdfae2949f6806e4a315c0c08522238
 // Everything the engine needs comes from this origin, not gstatic.com (CanvasKit, default Roboto),
 // so the app starts offline; Safari aborts startup when those requests fail.
 const here = (p) => new URL(p, document.baseURI).href;
+// Only Roboto is shipped as the engine's fallback font; rarer glyphs without an app font stay blank. Emoji do not use
+// the engine's fallback service (it switches itself off after a few failed downloads): the app registers its own emoji
+// font from fonts/emoji/ (lib/ui/emoji_font_web.dart).
 _flutter.loader.load({
   config: { canvasKitBaseUrl: here('canvaskit/'), fontFallbackBaseUrl: here('fallback-fonts/') },
 });
